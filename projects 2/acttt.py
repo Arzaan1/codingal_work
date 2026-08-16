@@ -1,17 +1,18 @@
+#HOLIDAY PLANNER
 print("Holiday Planner")
 
-choice = int(input("1 Beach, 2 Mountain: "))
+choice = int(input("1 Beach 2 Mountain: "))
 
 if choice == 1:
-    activity = int(input("1 Swimming, 2 Sandcastle: "))
+    activity = int(input("1 Swimming 2 Sandcastle: "))
 
     if activity == 1:
-        print("You picked Swimming")
+        print("You picked swimming")
     else:
-        print("You picked Sandcastle")
+        print("You picked sandcastle")
 
 elif choice == 2:
-    activity = int(input("1 Hiking, 2 Camping: "))
+    activity = int(input("1 Hiking 2 Camping: "))
 
     if activity == 1:
         print("You picked Hiking")
@@ -21,4 +22,4 @@ elif choice == 2:
 else:
     print("Invalid choice")
 
-print("Done!")
+print("Done")
