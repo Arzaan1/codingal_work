@@ -1,0 +1,31 @@
+low=med=high=cust=sales=0
+billing=True
+
+while billing:
+    name=input("Name: ")
+    count=int(input("Items: "))
+    if count<=0: continue
+    total=0
+    n=1
+
+    while n<=count:
+        item=input("Item: ")
+        p=int(input("Price: "))
+        q=int(input("Qty: "))
+        if p<=0 or q<=0: continue
+
+        t=p*q
+        print(item,q,"x",p,"=",t)
+        total+=t
+        if t<50: low+=1
+        elif t<=100: med+=1
+        else: high+=1
+        n+=1
+
+    cust+=1
+    sales+=total
+    print("Total:",total)
+    if input("Next? ")!="yes": billing=False
+
+for x in [low,med,high]: print("*"*x)
+print(cust,sales)
