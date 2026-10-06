@@ -6,6 +6,8 @@ num = int(input("choose a number from 1-50: "))
 
 print (f"you have chosen {num}")
 
+
+
 if num <=49:
     print("wrong try again")
     num = int(input("choose a number from 1-50: "))
@@ -30,15 +32,19 @@ if num==50:
 else:
     print("you have lost!")
 
-if num==1-10:
-    print("hint ice cold")
-if num==10-20:
-    print("hint cold")
-if num==30-30:
-    print("hint warm")
-if num==30-40:
-    print("hint hot")
-if num==40-50:
-    print("hint very hot")
 
+if num<=1-10:
+    print("hint ice cold")
+
+if num<=10-20:
+    print("hint cold")
+
+if num<=30-30:
+    print("hint warm")
+
+if num<=30-40:
+    print("hint hot")
+    
+if num<=40-50:
+    print("hint very hot")
 
