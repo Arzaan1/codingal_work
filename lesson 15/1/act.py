@@ -53,7 +53,8 @@ while True:
          if co5>0:
           print(f"1 bucs x {co1} notes are given")
          remaining = remaining%100
-         curr+=1
+         curr+=1 
+         print("1h424")
 
 
 
