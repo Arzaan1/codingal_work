@@ -25,7 +25,7 @@ change_due = calculate_change(total_inserted, ticket_price)
 if change_due == 0:
     pass
 else:
-    print(chang e_due)
+    print(change_due)
 
 print(ticket_price)
 print(coins_inserted)
