@@ -1,0 +1,399 @@
+code = r'''import random
+import os
+import time
+
+WIDTH = 15
+HEIGHT = 9
+PLAYER = "P"
+ENEMY = "E"
+CHEST = "C"
+MEDKIT = "+"
+SHIELD = "S"
+MATERIAL = "M"
+EMPTY = "."
+
+def clear():
+    os.system("cls" if os.name == "nt" else "clear")
+
+def pause():
+    input("\nPress Enter to continue...")
+
+def make_map():
+    world = [[EMPTY for _ in range(WIDTH)] for _ in range(HEIGHT)]
+    spots = [CHEST, CHEST, CHEST, MEDKIT, MEDKIT, SHIELD, SHIELD, MATERIAL, MATERIAL]
+    for item in spots:
+        x = random.randrange(WIDTH)
+        y = random.randrange(HEIGHT)
+        while world[y][x] != EMPTY:
+            x = random.randrange(WIDTH)
+            y = random.randrange(HEIGHT)
+        world[y][x] = item
+    for _ in range(7):
+        x = random.randrange(WIDTH)
+        y = random.randrange(HEIGHT)
+        if world[y][x] == EMPTY:
+            world[y][x] = ENEMY
+    return world
+
+def draw_map(world, player, storm):
+    print("   " + " ".join(str(i % 10) for i in range(WIDTH)))
+    for y, row in enumerate(world):
+        line = []
+        for x, item in enumerate(row):
+            if [x, y] == player:
+                line.append(PLAYER)
+            elif abs(x - 7) + abs(y - 4) > storm:
+                line.append("~")
+            else:
+                line.append(item)
+        print(f"{y:2} " + " ".join(line))
+    print("\nP=you  E=opponent  C=chest  +=medkit  S=shield  M=materials  ~=storm")
+
+def show_stats(player_name, hp, shield, ammo, mats, eliminations, round_no):
+    print(f"\n{player_name} | Round {round_no}")
+    print(f"Health: {hp}/100   Shield: {shield}/100")
+    print(f"Energy cells: {ammo}   Building materials: {mats}")
+    print(f"Opponents eliminated: {eliminations}")
+
+def intro():
+    clear()
+    print("=" * 54)
+    print("              ISLAND ROYALE")
+    print("         A big text battle royale adventure")
+    print("=" * 54)
+    print("Land on the island, collect supplies, avoid the storm")
+    print("and try to become the last player standing.")
+    print("\nThis is a fictional game with simple turn-based actions.")
+    name = input("\nEnter your player name: ").strip()
+    if not name:
+        name = "Player"
+    print(f"\nWelcome, {name}!")
+    pause()
+    return name
+
+def get_choice(prompt, choices):
+    while True:
+        answer = input(prompt).strip().lower()
+        if answer in choices:
+            return answer
+        print("Choose one of:", ", ".join(choices))
+
+def move_player(player, direction):
+    x, y = player
+    if direction == "w":
+        y -= 1
+    elif direction == "s":
+        y += 1
+    elif direction == "a":
+        x -= 1
+    elif direction == "d":
+        x += 1
+    if 0 <= x < WIDTH and 0 <= y < HEIGHT:
+        return [x, y]
+    print("You cannot move outside the island!")
+    return player
+
+def collect_item(world, player, inventory):
+    x, y = player
+    item = world[y][x]
+    if item == CHEST:
+        reward = random.choice(["cells", "shield", "medkit", "materials"])
+        print("\nYou opened a supply chest!")
+        if reward == "cells":
+            inventory["ammo"] += 5
+            print("You found 5 energy cells.")
+        elif reward == "shield":
+            inventory["shield"] = min(100, inventory["shield"] + 30)
+            print("You found a shield boost.")
+        elif reward == "medkit":
+            inventory["hp"] = min(100, inventory["hp"] + 30)
+            print("You found a medkit.")
+        else:
+            inventory["mats"] += 20
+            print("You found 20 building materials.")
+        world[y][x] = EMPTY
+    elif item == MEDKIT:
+        inventory["hp"] = min(100, inventory["hp"] + 20)
+        world[y][x] = EMPTY
+        print("\nYou collected a medkit and restored health.")
+    elif item == SHIELD:
+        inventory["shield"] = min(100, inventory["shield"] + 25)
+        world[y][x] = EMPTY
+        print("\nYou collected a shield boost.")
+    elif item == MATERIAL:
+        inventory["mats"] += 15
+        world[y][x] = EMPTY
+        print("\nYou collected 15 building materials.")
+
+def take_damage(inventory, amount):
+    blocked = min(inventory["shield"], amount)
+    inventory["shield"] -= blocked
+    inventory["hp"] -= amount - blocked
+    inventory["hp"] = max(0, inventory["hp"])
+
+def opponent_turn(world, player, inventory):
+    enemies = []
+    for y in range(HEIGHT):
+        for x in range(WIDTH):
+            if world[y][x] == ENEMY:
+                enemies.append([x, y])
+    random.shuffle(enemies)
+    for enemy in enemies:
+        if inventory["hp"] <= 0:
+            return
+        ex, ey = enemy
+        px, py = player
+        distance = abs(ex - px) + abs(ey - py)
+        if distance <= 1:
+            damage = random.randint(5, 13)
+            take_damage(inventory, damage)
+            print(f"\nAn opponent challenged you! You lost {damage} points.")
+        else:
+            dx = 0
+            dy = 0
+            if abs(px - ex) > abs(py - ey):
+                dx = 1 if px > ex else -1
+            elif py != ey:
+                dy = 1 if py > ey else -1
+            nx, ny = ex + dx, ey + dy
+            if 0 <= nx < WIDTH and 0 <= ny < HEIGHT:
+                if world[ny][nx] == EMPTY and [nx, ny] != player:
+                    world[ny][nx] = ENEMY
+                    world[ey][ex] = EMPTY
+
+def use_cells(world, player, inventory):
+    if inventory["ammo"] <= 0:
+        print("You have no energy cells left.")
+        return
+    nearby = []
+    for y in range(HEIGHT):
+        for x in range(WIDTH):
+            if world[y][x] == ENEMY:
+                distance = abs(x - player[0]) + abs(y - player[1])
+                if distance <= 3:
+                    nearby.append((distance, x, y))
+    if not nearby:
+        print("No opponents are close enough.")
+        return
+    nearby.sort()
+    _, x, y = nearby[0]
+    inventory["ammo"] -= 1
+    world[y][x] = EMPTY
+    inventory["eliminations"] += 1
+    print("You used an energy cell and eliminated an opponent!")
+
+def build_cover(world, player, inventory):
+    if inventory["mats"] < 10:
+        print("You need 10 materials to build cover.")
+        return
+    inventory["mats"] -= 10
+    inventory["cover"] = 1
+    print("You built cover. It will block the next opponent attack.")
+
+def storm_turn(player, inventory, storm):
+    x, y = player
+    distance = abs(x - 7) + abs(y - 4)
+    if distance > storm:
+        take_damage(inventory, 12)
+        print("\nThe storm is closing in! You lost 12 health/shield.")
+    return max(1, storm - 1)
+
+def random_event(inventory):
+    event = random.randint(1, 8)
+    if event == 1:
+        inventory["ammo"] += 2
+        print("\nIsland event: a supply drone dropped 2 energy cells!")
+    elif event == 2:
+        inventory["mats"] += 8
+        print("\nIsland event: you found spare building materials!")
+    elif event == 3:
+        print("\nIsland event: a quiet moment. Nothing happened.")
+    elif event == 4:
+        inventory["shield"] = min(100, inventory["shield"] + 5)
+        print("\nIsland event: a small shield boost appeared!")
+    elif event == 5:
+        print("\nIsland event: you spotted movement far away.")
+    else:
+        print("\nThe island is getting quieter...")
+
+def final_score(inventory, won):
+    print("\n" + "=" * 48)
+    if won:
+        print("             VICTORY!")
+        print("       YOU ARE THE ISLAND CHAMPION!")
+    else:
+        print("              GAME OVER")
+        print("       Better luck next time!")
+    print("=" * 48)
+    print("Opponents eliminated:", inventory["eliminations"])
+    print("Health remaining:", inventory["hp"])
+    print("Shield remaining:", inventory["shield"])
+    print("Materials collected:", inventory["mats"])
+    print("Energy cells remaining:", inventory["ammo"])
+    print("\nThanks for playing Island Royale!")
+
+def play_round(name, difficulty):
+    world = make_map()
+    player = [7, 4]
+    inventory = {
+        "hp": 100,
+        "shield": 25,
+        "ammo": 8,
+        "mats": 20,
+        "eliminations": 0,
+        "cover": 0
+    }
+    storm = 7
+    round_no = 1
+    enemy_count = sum(row.count(ENEMY) for row in world)
+
+    if difficulty == "easy":
+        enemy_damage = 1
+    elif difficulty == "hard":
+        enemy_damage = 1.25
+    else:
+        enemy_damage = 1.1
+
+    while inventory["hp"] > 0 and enemy_count > 0:
+        clear()
+        print("=" * 48)
+        print("                 ISLAND ROYALE")
+        print("=" * 48)
+        show_stats(name, inventory["hp"], inventory["shield"],
+                   inventory["ammo"], inventory["mats"],
+                   inventory["eliminations"], round_no)
+        draw_map(world, player, storm)
+        print("\nYour turn:")
+        print("W/A/S/D = move")
+        print("L = use energy cell on a nearby opponent")
+        print("B = build cover")
+        print("H = use a medkit if you find one")
+        print("Q = quit this match")
+        choice = get_choice("\nChoose an action: ",
+                            ["w", "a", "s", "d", "l", "b", "h", "q"])
+
+        if choice == "q":
+            print("\nYou left the match.")
+            return False, inventory
+        elif choice in ["w", "a", "s", "d"]:
+            player = move_player(player, choice)
+            collect_item(world, player, inventory)
+        elif choice == "l":
+            before = inventory["eliminations"]
+            use_cells(world, player, inventory)
+            if inventory["eliminations"] == before:
+                pass
+        elif choice == "b":
+            build_cover(world, player, inventory)
+        elif choice == "h":
+            if inventory["hp"] < 100:
+                inventory["hp"] = min(100, inventory["hp"] + 15)
+                print("You used a small healing pack.")
+            else:
+                print("Your health is already full.")
+
+        if inventory["hp"] <= 0:
+            break
+
+        opponent_turn(world, player, inventory)
+        if inventory["cover"]:
+            inventory["cover"] = 0
+            inventory["shield"] = min(100, inventory["shield"] + 8)
+            print("\nYour cover protected you and added 8 shield.")
+        storm = storm_turn(player, inventory, storm)
+        random_event(inventory)
+
+        enemy_count = sum(row.count(ENEMY) for row in world)
+        if round_no % 4 == 0 and enemy_count > 0:
+            print("\nThe island has changed. The storm is shrinking!")
+        round_no += 1
+        pause()
+
+    won = inventory["hp"] > 0 and enemy_count == 0
+    return won, inventory
+
+def instructions():
+    clear()
+    print("HOW TO PLAY")
+    print("- Move around the island using W A S D.")
+    print("- Walk over a chest to collect a random supply.")
+    print("- Medkits restore health.")
+    print("- Shield boosts protect you.")
+    print("- Materials let you build cover.")
+    print("- Use L to deal with a nearby opponent.")
+    print("- The storm hurts you when you are outside its safe area.")
+    print("- Try to be the last player on the island.")
+    pause()
+
+def shop(inventory):
+    while True:
+        clear()
+        print("SUPPLY SHOP")
+        print("Your materials:", inventory["mats"])
+        print("1. 5 energy cells - 10 materials")
+        print("2. 20 shield - 12 materials")
+        print("3. 20 health - 12 materials")
+        print("4. Leave shop")
+        choice = get_choice("\nChoose: ", ["1", "2", "3", "4"])
+        if choice == "1" and inventory["mats"] >= 10:
+            inventory["mats"] -= 10
+            inventory["ammo"] += 5
+            print("Bought 5 energy cells!")
+        elif choice == "2" and inventory["mats"] >= 12:
+            inventory["mats"] -= 12
+            inventory["shield"] = min(100, inventory["shield"] + 20)
+            print("Bought shield!")
+        elif choice == "3" and inventory["mats"] >= 12:
+            inventory["mats"] -= 12
+            inventory["hp"] = min(100, inventory["hp"] + 20)
+            print("Bought health!")
+        elif choice == "4":
+            return
+        else:
+            print("Not enough materials or invalid choice.")
+        pause()
+
+def main():
+    name = intro()
+    while True:
+        clear()
+        print("=" * 48)
+        print("                 ISLAND ROYALE")
+        print("=" * 48)
+        print("1. Start a match")
+        print("2. How to play")
+        print("3. Visit the supply shop")
+        print("4. Quit")
+        choice = get_choice("\nChoose: ", ["1", "2", "3", "4"])
+        if choice == "1":
+            clear()
+            print("Choose difficulty")
+            print("1. Easy")
+            print("2. Normal")
+            print("3. Hard")
+            level = get_choice("\nDifficulty: ", ["1", "2", "3"])
+            difficulty = {"1": "easy", "2": "normal", "3": "hard"}[level]
+            won, inventory = play_round(name, difficulty)
+            if won:
+                final_score(inventory, True)
+            elif inventory["hp"] <= 0:
+                final_score(inventory, False)
+            pause()
+        elif choice == "2":
+            instructions()
+        elif choice == "3":
+            demo_inventory = {"mats": 30, "ammo": 0, "shield": 0, "hp": 60}
+            shop(demo_inventory)
+        else:
+            clear()
+            print("Thanks for playing ISLAND ROYALE!")
+            print("See you on the island, " + name + "!")
+            break
+
+if __name__ == "__main__":
+    main()
+'''
+path = "/mnt/data/island_royale.py"
+with open(path, "w", encoding="utf-8") as f:
+    f.write(code)
+print(f"Created {path} ({len(code.splitlines())} lines)")
